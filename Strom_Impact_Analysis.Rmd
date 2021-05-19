@@ -1,0 +1,92 @@
+---
+title: "Estimating the impact of Extreme Weather events to Public health and Economy"
+author: "Mr. Sachin B."
+date: "19/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Data Processing
+
+
+```{r dataset_loading, cache = TRUE}
+library(sqldf)
+
+if(!file.exists("./data")){dir.create("./data")}
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",destfile = "./data/StormData.csv.bz2",method = "curl")
+
+```
+
+```{r}
+
+df = read.csv(file="./data/StormData.csv.bz2", sep=",", header = TRUE)[ ,c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
+
+
+# Remove incomplete observation
+df=df[complete.cases(df), ]
+```
+
+```{r, cache=TRUE}
+library(dplyr)
+library(reshape2)
+
+df$EVTYPE <- factor(df$EVTYPE)
+
+df_casualties <- df %>% 
+                 group_by(EVTYPE) %>%
+                 summarize(fatalities = sum(FATALITIES),
+                           injuries = sum(INJURIES))
+
+df_fatalities <- head(arrange(df_casualties,desc(fatalities)),50)
+df_injuries <- head(arrange(df_casualties,desc(injuries)),50)
+
+df_merge <- merge(df_fatalities, df_injuries, all = TRUE)
+
+df_health <- head(arrange(df_merge,desc(fatalities,injuries)),10)
+  
+df_health_melt <- melt(df_health,id.vars = "EVTYPE", measure.vars = c("fatalities","injuries"))
+
+
+```
+
+```{r}
+library(ggplot2)
+
+g <- ggplot(data = df_fatalities, aes(x=reorder(EVTYPE,fatalities), y=fatalities, fill = fatalities))+geom_bar(stat = "identity")
+
+g + coord_flip() +
+  ylab("Total number of fatalities") +
+  xlab("Event type") +
+  theme(legend.position="none")
+
+```
+
+
+```{r}
+
+g <- ggplot(data = df_injuries, aes(x=reorder(EVTYPE,injuries), y=injuries, fill = injuries))
+
+g+geom_bar(stat = "identity") + 
+  coord_flip() +
+  ylab("Total number of injuries") +
+  xlab("Event type") +
+  theme(legend.position="none")
+
+
+```
+
+
+```{r}
+library(ggplot2)
+
+g <- ggplot(data = df_health_melt, aes(x=reorder(EVTYPE,value), y=value, fill = variable))+geom_bar(stat = "identity", position = position_dodge())
+
+g + coord_flip() +
+  ylab("Total number of fatalities") +
+  xlab("Event type")
+
+```
