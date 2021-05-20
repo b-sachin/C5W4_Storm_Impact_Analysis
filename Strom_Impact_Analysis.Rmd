@@ -12,81 +12,137 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Data Processing
 
-
 ```{r dataset_loading, cache = TRUE}
-library(sqldf)
 
+# download dataset from website
 if(!file.exists("./data")){dir.create("./data")}
 download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",destfile = "./data/StormData.csv.bz2",method = "curl")
 
 ```
 
-```{r}
+```{r dataset_required, cache = TRUE}
 
+# Read required column  from dataset in dataframe 
 df = read.csv(file="./data/StormData.csv.bz2", sep=",", header = TRUE)[ ,c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
-
 
 # Remove incomplete observation
 df=df[complete.cases(df), ]
+
+# Transforming Event Type as factor
+df$EVTYPE <- factor(df$EVTYPE)
 ```
 
-```{r, cache=TRUE}
+```{r packages_required, warning=FALSE, cache=FALSE}
 library(dplyr)
 library(reshape2)
+library(ggplot2)
 
-df$EVTYPE <- factor(df$EVTYPE)
+```
+
+```{r health_impact_analysis, cache=TRUE}
 
 df_casualties <- df %>% 
                  group_by(EVTYPE) %>%
                  summarize(fatalities = sum(FATALITIES),
-                           injuries = sum(INJURIES))
+                 injuries = sum(INJURIES))
 
-df_fatalities <- head(arrange(df_casualties,desc(fatalities)),50)
-df_injuries <- head(arrange(df_casualties,desc(injuries)),50)
+df_casualties <- mutate(df_casualties,mean_of_two = (fatalities+injuries)/2)
 
-df_merge <- merge(df_fatalities, df_injuries, all = TRUE)
+df_final <- head(arrange(df_casualties,desc(mean_of_two)),10)
 
-df_health <- head(arrange(df_merge,desc(fatalities,injuries)),10)
-  
-df_health_melt <- melt(df_health,id.vars = "EVTYPE", measure.vars = c("fatalities","injuries"))
-
+df_final_melt <- melt(df_final,id.vars = "EVTYPE", measure.vars = c("fatalities","injuries"))
 
 ```
 
-```{r}
-library(ggplot2)
+```{r health_impact_analysis_plot}
 
-g <- ggplot(data = df_fatalities, aes(x=reorder(EVTYPE,fatalities), y=fatalities, fill = fatalities))+geom_bar(stat = "identity")
+g <- ggplot(data = df_final_melt, aes(x=reorder(EVTYPE,value), y=value, fill = variable))
 
-g + coord_flip() +
-  ylab("Total number of fatalities") +
+g + 
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  coord_flip() + 
   xlab("Event type") +
-  theme(legend.position="none")
+  ylab("Total number of fatalities & Injuries")
+
+```
+
+```{r number_convertor, cache=TRUE}
+
+NumScale <- data.frame(
+              Name= c("h","H","k","K","m","M","b","B"),
+              Num = c(10^2,10^2,10^3,10^3,10^6,10^6,10^9,10^9)
+              )
+```
+
+```{r}
+# Selecting rows where damage happened and column required for property damage analysis
+df_economy <- df[,c("EVTYPE","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
+```
+
+```{r property_damage, cache=TRUE}
+
+# checking for meaningful labels
+unique(df_economy$PROPDMGEXP)
+
+# convert character units to number and calculate property damage
+df_economy$PROPMUL <- 10^0
+
+for (i in 1:nrow(NumScale)) {
+  df_economy$PROPMUL[df_economy$PROPDMGEXP == NumScale[i,"Name"]] <- NumScale[i,"Num"]
+}
+
+df_economy$PROPTOTAL <- df_economy$PROPDMG * df_economy$PROPMUL
 
 ```
 
 
-```{r}
+```{r crop_damage, cache=TRUE}
 
-g <- ggplot(data = df_injuries, aes(x=reorder(EVTYPE,injuries), y=injuries, fill = injuries))
+# checking for meaningful labels
+unique(df_economy$CROPDMGEXP)
 
-g+geom_bar(stat = "identity") + 
-  coord_flip() +
-  ylab("Total number of injuries") +
-  xlab("Event type") +
-  theme(legend.position="none")
 
+# convert character units to number and calculate property damage
+df_economy$CROPMUL <- 10^0
+
+for (i in 1:nrow(NumScale)) {
+  df_economy$CROPMUL[df_economy$CROPDMGEXP == NumScale[i,"Name"]] <- NumScale[i,"Num"]
+}
+
+df_economy$CROPTOTAL <- df_economy$CROPDMG * df_economy$CROPMUL
 
 ```
 
 
-```{r}
-library(ggplot2)
+```{r economy_impact_analysis, cache=TRUE}
 
-g <- ggplot(data = df_health_melt, aes(x=reorder(EVTYPE,value), y=value, fill = variable))+geom_bar(stat = "identity", position = position_dodge())
+df_eco_total <- df_economy %>% 
+                 group_by(EVTYPE) %>%
+                 summarize(property = sum(PROPTOTAL),
+                          crop = sum(CROPTOTAL)
+                          )
 
-g + coord_flip() +
-  ylab("Total number of fatalities") +
-  xlab("Event type")
+df_property <- head(arrange(df_eco_total,desc(property)),10)
+df_crop <- head(arrange(df_eco_total,desc(crop)),10)
 
+
+```
+
+```{r property_damage_plot}
+
+g <- ggplot(data = df_property, aes(x=reorder(EVTYPE,property), y=property))
+
+g + 
+  geom_bar(stat = "identity") +
+  coord_flip()
+
+```
+
+```{r crop_damage_plot}
+
+g <- ggplot(data = df_crop, aes(x=reorder(EVTYPE,crop), y=crop))
+
+g + 
+  geom_bar(stat = "identity") +
+  coord_flip()
 ```
