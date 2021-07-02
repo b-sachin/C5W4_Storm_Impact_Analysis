@@ -7,9 +7,7 @@ output:
   pdf_document: default
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+
 
 ## Synopsis
 
@@ -33,27 +31,45 @@ This analysis shows by aggregating the data by storm events type :
 
 ### 1.1 Libraries
 
-```{r packages_required, warning=FALSE, cache=FALSE}
 
+```r
 # Loading all required libraries 
 library(dplyr)
+```
+
+```
+## 
+## Attaching package: 'dplyr'
+```
+
+```
+## The following objects are masked from 'package:stats':
+## 
+##     filter, lag
+```
+
+```
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+```
+
+```r
 library(reshape2)
 library(ggplot2)
-
 ```
 
 ### 1.2 Download data from Website
-```{r dataset_loading, cache = TRUE}
 
+```r
 # download dataset from website
 if(!file.exists("./data")){dir.create("./data")}
 download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",destfile = "./data/StormData.csv.bz2",method = "curl")
-
 ```
 
 ### 1.3 Loading and Preprocessing
-```{r dataset_required, cache = TRUE}
 
+```r
 # Read required column  from dataset in dataframe 
 df = read.csv(file="./data/StormData.csv.bz2", sep=",", header = TRUE)[ ,c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
 
@@ -62,10 +78,35 @@ df=df[complete.cases(df), ]
 
 # dataset view
 head(df)
+```
 
+```
+##    EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+## 1 TORNADO          0       15    25.0          K       0           
+## 2 TORNADO          0        0     2.5          K       0           
+## 3 TORNADO          0        2    25.0          K       0           
+## 4 TORNADO          0        2     2.5          K       0           
+## 5 TORNADO          0        2     2.5          K       0           
+## 6 TORNADO          0        6     2.5          K       0
+```
+
+```r
 # datatype of columns
 str(df)
+```
 
+```
+## 'data.frame':	902297 obs. of  7 variables:
+##  $ EVTYPE    : chr  "TORNADO" "TORNADO" "TORNADO" "TORNADO" ...
+##  $ FATALITIES: num  0 0 0 0 0 0 0 0 1 0 ...
+##  $ INJURIES  : num  15 0 2 2 2 6 1 0 14 0 ...
+##  $ PROPDMG   : num  25 2.5 25 2.5 2.5 2.5 2.5 2.5 25 25 ...
+##  $ PROPDMGEXP: chr  "K" "K" "K" "K" ...
+##  $ CROPDMG   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ CROPDMGEXP: chr  "" "" "" "" ...
+```
+
+```r
 # Transforming Event Type as factor
 df$EVTYPE <- factor(df$EVTYPE)
 ```
@@ -74,8 +115,8 @@ df$EVTYPE <- factor(df$EVTYPE)
 
 ### 1.4 Health Impact Analysis
 
-```{r health_impact_analysis, cache=TRUE}
 
+```r
 # Calculating sum of fatalities and injuries as per Event Type
 df_casualties <- df %>% 
                  group_by(EVTYPE) %>%
@@ -90,23 +131,21 @@ df_health <- head(arrange(df_casualties,desc(mean_of_two)),10)
 
 # for creating 'fatalities' and 'injuries' a categorical variables
 df_health_melt <- melt(df_health,id.vars = "EVTYPE", measure.vars = c("fatalities","injuries"))
-
 ```
 
 <hr>
 
 ### 1.5 Economic Impact Analysis
 
-```{r economic_impact_analysis_dataset}
 
+```r
 # Selecting rows where damage happened and column required for property damage analysis
 df_economy <- df[,c("EVTYPE","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
-
 ```
 
 
-```{r number_convertor, cache=TRUE}
 
+```r
 # character units to number translator table
 NumScale <- data.frame(
               Name= c("h","H","k","K","m","M","b","B"),
@@ -115,11 +154,17 @@ NumScale <- data.frame(
 ```
 
 
-```{r property_damage, cache=TRUE}
 
+```r
 # checking for meaningful labels
 unique(df_economy$PROPDMGEXP)
+```
 
+```
+##  [1] "K" "M" ""  "B" "m" "+" "0" "5" "6" "?" "4" "2" "3" "h" "7" "H" "-" "1" "8"
+```
+
+```r
 # convert character units to number and calculate property damage
 df_economy$PROPMUL <- 10^0
 
@@ -128,15 +173,20 @@ for (i in 1:nrow(NumScale)) {
 }
 
 df_economy$PROPTOTAL <- df_economy$PROPDMG * df_economy$PROPMUL
-
 ```
 
 
-```{r crop_damage, cache=TRUE}
 
+```r
 # checking for meaningful labels
 unique(df_economy$CROPDMGEXP)
+```
 
+```
+## [1] ""  "M" "K" "m" "B" "?" "0" "k" "2"
+```
+
+```r
 # convert character units to number and calculate property damage
 df_economy$CROPMUL <- 10^0
 
@@ -145,12 +195,11 @@ for (i in 1:nrow(NumScale)) {
 }
 
 df_economy$CROPTOTAL <- df_economy$CROPDMG * df_economy$CROPMUL
-
 ```
 
 
-```{r economy_impact_analysis, cache=TRUE}
 
+```r
 # Calculating sum of property and crop as per Event Type
 df_eco_total <- df_economy %>% 
                  group_by(EVTYPE) %>%
@@ -161,7 +210,6 @@ df_eco_total <- df_economy %>%
 # selecting top 10 rows depicting maximum damage
 df_property <- head(arrange(df_eco_total,desc(property)),10)
 df_crop <- head(arrange(df_eco_total,desc(crop)),10)
-
 ```
 
 <hr>
@@ -172,8 +220,8 @@ df_crop <- head(arrange(df_eco_total,desc(crop)),10)
 
 Question 1: Across the United States, which types of events are most harmful with respect to population health ?
 
-```{r health_impact_analysis_plot}
 
+```r
 # Plot: Number of injuries with the most harmful event type
 
 g <- ggplot(data = df_health_melt, aes(x=reorder(EVTYPE,value), y=value, fill = variable))
@@ -185,8 +233,9 @@ g +
   ylab("Total number of fatalities & injuries") + 
   labs(fill = "Casulality") +
   ggtitle("Number of injuries by top 10 Weather Events")
-
 ```
+
+![](Strom_Impact_Analysis_files/figure-html/health_impact_analysis_plot-1.png)<!-- -->
 
 Conclusion: The weather event that causes the most harm to public health is Tornadoes. They have shown in the graphs above to be the largest cause of fatalities and injuries due to weather events in the United States.
 
@@ -196,8 +245,8 @@ Conclusion: The weather event that causes the most harm to public health is Torn
 
 Question 2: Across the United States, which types of events hae the greatest economic consequences?
 
-```{r property_damage_plot}
 
+```r
 # Plot: Number of damages with the most harmful event type
 
 g <- ggplot(data = df_property, aes(x=reorder(EVTYPE,property), y=property, fill=property))
@@ -209,11 +258,12 @@ g +
   ylab("Damage ($)") + 
   labs(fill = "Property Damage") + 
   ggtitle("Property Damage by top 10 Weather Events")
-
 ```
 
-```{r crop_damage_plot}
+![](Strom_Impact_Analysis_files/figure-html/property_damage_plot-1.png)<!-- -->
 
+
+```r
 # Plot: Number of damages with the most harmful event type
 
 g <- ggplot(data = df_crop, aes(x=reorder(EVTYPE,crop), y=crop, fill=crop))
@@ -225,7 +275,8 @@ g +
   ylab("Damage ($)") + 
   labs(fill = "Crop Damage") + 
   ggtitle("Crop Damage by top 10 Weather Events")
-
 ```
+
+![](Strom_Impact_Analysis_files/figure-html/crop_damage_plot-1.png)<!-- -->
 
 Conclusion: 'Drought' is the event which causes maximum impact on crops but 'Flood' is the event which have the greatest economic consequences altogether.
