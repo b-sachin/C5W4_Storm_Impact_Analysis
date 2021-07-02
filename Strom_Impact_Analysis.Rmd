@@ -2,9 +2,9 @@
 title: "Top Storm Event Index"
 author: "Sachin B."
 output: 
+  pdf_document: default
   html_document:
     keep_md: true
-  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
